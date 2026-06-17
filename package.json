@@ -1,0 +1,22 @@
+{
+  "name": "ltc2983-web",
+  "version": "2.0.0",
+  "description": "LTC2983 Temperature Measurement System - Web Configuration & Logging Interface",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --simulate"
+  },
+  "keywords": ["ltc2983", "thermocouple", "temperature", "spi", "raspberry-pi"],
+  "author": "Reese Russell",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "socket.io": "^4.7.5",
+    "better-sqlite3": "^11.3.0"
+  },
+  "optionalDependencies": {
+    "spi-device": "^3.1.2",
+    "onoff": "^6.0.3"
+  }
+}
