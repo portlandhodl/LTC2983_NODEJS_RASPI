@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LTC2983 Temperature System</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌡️</text></svg>">
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-card: #1e293b;
+      --bg-input: #0f172a;
+      --border: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #06b6d4;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─────────────────────────────────── */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header h1 span { font-size: 1.5rem; }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.active { background: var(--success); animation: pulse 2s infinite; }
+    .status-dot.simulated { background: var(--warning); }
+    .status-dot.error { background: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ─── Navigation Tabs ────────────────────────── */
+    .nav-tabs {
+      display: flex;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .nav-tab {
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+      font-size: 0.875rem;
+      font-weight: 500;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+
+    .nav-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+    .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ─── Tab Content ────────────────────────────── */
+    .tab-content { display: none; padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+    .tab-content.active { display: block; }
+
+    /* ─── Cards ──────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .card-body { padding: 1.25rem; }
+
+    /* ─── Grid Layouts ───────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; }
+
+    @media (max-width: 1024px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-5 { grid-template-columns: repeat(3, 1fr); }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+    }
+
+    /* ─── Forms ──────────────────────────────────── */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.375rem;
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    select.form-control {
+      cursor: pointer;
+      appearance: auto;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      align-items: end;
+    }
+
+    .form-row .form-group { flex: 1; }
+
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-check input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--accent);
+    }
+
+    .form-check label {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    /* ─── Buttons ────────────────────────────────── */
+    .btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .btn:hover { background: var(--border); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-success { background: var(--success); border-color: var(--success); color: white; }
+    .btn-success:hover { background: #16a34a; }
+
+    .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+    .btn-danger:hover { background: #dc2626; }
+
+    .btn-warning { background: var(--warning); border-color: var(--warning); color: #000; }
+
+    .btn-sm { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
+
+    .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* ─── Temperature Cards ──────────────────────── */
+    .temp-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .temp-card.has-reading { border-color: var(--accent); }
+    .temp-card.error { border-color: var(--danger); }
+    .temp-card.unconfigured { opacity: 0.4; }
+
+    .temp-card .channel-num {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .temp-card .sensor-type {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .temp-card .temperature {
+      font-size: 1.75rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .temp-card .unit {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .temp-card .error-text {
+      font-size: 0.7rem;
+      color: var(--danger);
+      margin-top: 0.25rem;
+    }
+
+    .temp-card .timestamp {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    /* ─── Channel Config Table ───────────────────── */
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .config-table th,
+    .config-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .config-table th {
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .config-table tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* ─── Chart Container ────────────────────────── */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      background: var(--bg-primary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+
+    .chart-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ─── Log Panel ──────────────────────────────── */
+    .log-panel {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 0.75rem;
+    }
+
+    .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .log-entry .log-time {
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .log-entry .log-msg { color: var(--text-secondary); }
+    .log-entry.error .log-msg { color: var(--danger); }
+    .log-entry.success .log-msg { color: var(--success); }
+
+    /* ─── Stats ──────────────────────────────────── */
+    .stat-box {
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .stat-box .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-box .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.25rem;
+    }
+
+    /* ─── Misc ───────────────────────────────────── */
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+    .text-warning { color: var(--warning); }
+    .text-muted { color: var(--text-muted); }
+    .text-center { text-align: center; }
+    .mt-1 { margin-top: 0.5rem; }
+    .mt-2 { margin-top: 1rem; }
+    .mb-1 { margin-bottom: 0.5rem; }
+    .mb-2 { margin-bottom: 1rem; }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .empty-state p { font-size: 0.9rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: 0.75rem 1.25rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+      max-width: 400px;
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+
+    @keyframes slideIn {
+      from { transform: translateY(1rem); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ─── Modal ──────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h3 { font-size: 1rem; font-weight: 600; }
+
+    .modal-body { padding: 1.25rem; }
+
+    .modal-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+
+    .close-btn:hover { color: var(--text-primary); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1><span>🌡️</span> LTC2983 Temperature System</h1>
+    <div class="header-status">
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+      </div>
+      <div class="status-badge" id="loggingBadge" style="display:none;">
+        <div class="status-dot active"></div>
+        <span>Logging</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav Tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="dashboard">📊 Dashboard</button>
+    <button class="nav-tab" data-tab="channels">⚙️ Channel Config</button>
+    <button class="nav-tab" data-tab="logging">📝 Logging</button>
+    <button class="nav-tab" data-tab="settings">🔧 Device Settings</button>
+    <button class="nav-tab" data-tab="history">📈 History</button>
+  </div>
+
+  <!-- ═══════════ DASHBOARD TAB ═══════════ -->
+  <div class="tab-content active" id="tab-dashboard">
+    <!-- Quick Stats -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Live Readings</h2>
+        <div class="btn-group">
+          <button class="btn btn-primary btn-sm" onclick="requestConversion()" id="btnConvert">
+            ⚡ Convert Now
+          </button>
+          <button class="btn btn-success btn-sm" onclick="toggleLogging()" id="btnToggleLog">
+            ▶ Start Logging
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="tempCardsContainer" class="grid-5">
+          <div class="empty-state">
+            <div class="icon">📡</div>
+            <p>No channels configured. Go to Channel Config to set up sensors.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Chart -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Temperature Chart</h2>
+        <div class="btn-group">
+          <button class="btn btn-sm" onclick="clearChart()">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="liveChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Event Log</h2>
+        <button class="btn btn-sm" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="card-body">
+        <div class="log-panel" id="logPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CHANNEL CONFIG TAB ═══════════ -->
+  <div class="tab-content" id="tab-channels">
+    <div class="card">
+      <div class="card-header">
+        <h2>Channel Configuration</h2>
+        <div class="btn-group">
+          <button class="btn btn-primary btn-sm" onclick="applyAllChannels()">💾 Apply to Device</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding: 0; overflow-x: auto;">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>CH</th>
+              <th>Sensor Type</th>
+              <th>Details</th>
+              <th>In CC Map</th>
+              <th>Last Reading</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="channelTableBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Conversion Map -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Consecutive Conversion Map</h2>
+        <button class="btn btn-primary btn-sm" onclick="saveConversionMap()">💾 Save Map</button>
+      </div>
+      <div class="card-body">
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Select which configured channels to include in consecutive (multi-channel) conversions.
+        </p>
+        <div id="ccMapCheckboxes" class="grid-5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ LOGGING TAB ═══════════ -->
+  <div class="tab-content" id="tab-logging">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <h2>Logging Control</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Polling Interval (ms)</label>
+            <input type="number" class="form-control" id="logInterval" value="1000" min="100" step="100">
+          </div>
+          <div class="form-group">
+            <label>Data Retention (days, 0 = forever)</label>
+            <input type="number" class="form-control" id="logRetention" value="30" min="0">
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="logAutoStart">
+            <label for="logAutoStart">Auto-start logging on server boot</label>
+          </div>
+          <div class="btn-group mt-2">
+            <button class="btn btn-primary" onclick="saveLoggingSettings()">💾 Save Settings</button>
+            <button class="btn btn-success" onclick="toggleLogging()" id="btnToggleLog2">▶ Start Logging</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Database Stats</h2>
+          <button class="btn btn-sm" onclick="refreshDbStats()">🔄 Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div class="stat-box">
+              <div class="stat-value" id="statReadings">0</div>
+              <div class="stat-label">Total Readings</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="statDbSize">0 KB</div>
+              <div class="stat-label">Database Size</div>
+            </div>
+          </div>
+          <div class="btn-group mt-2">
+            <button class="btn btn-sm" onclick="exportData()">📥 Export CSV</button>
+            <button class="btn btn-danger btn-sm" onclick="purgeData()">🗑️ Purge Old Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SETTINGS TAB ═══════════ -->
+  <div class="tab-content" id="tab-settings">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <h2>Device Settings (SPI)</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>SPI Bus</label>
+              <input type="number" class="form-control" id="cfgSpiBus" value="0" min="0">
+            </div>
+            <div class="form-group">
+              <label>SPI Device (CS)</label>
+              <input type="number" class="form-control" id="cfgSpiDevice" value="1" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>SPI Speed (Hz)</label>
+            <input type="number" class="form-control" id="cfgSpiSpeed" value="1000000" min="100000" step="100000">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Interrupt GPIO Pin</label>
+              <input type="number" class="form-control" id="cfgIntPin" value="35">
+            </div>
+            <div class="form-group">
+              <label>Reset GPIO Pin</label>
+              <input type="number" class="form-control" id="cfgRstPin" value="37">
+            </div>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="cfgSimulate">
+            <label for="cfgSimulate">Simulation Mode (no hardware)</label>
+          </div>
+          <div class="btn-group mt-2">
+            <button class="btn btn-primary" onclick="saveDeviceSettings()">💾 Save</button>
+            <button class="btn btn-warning" onclick="reinitDevice()">🔄 Re-initialize Device</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Global Configuration</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Temperature Unit</label>
+            <select class="form-control" id="cfgUnit">
+              <option value="false">Celsius (°C)</option>
+              <option value="true">Fahrenheit (°F)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Mains Rejection</label>
+            <select class="form-control" id="cfgRejection">
+              <option value="50/60">50/60 Hz (Both)</option>
+              <option value="60">60 Hz</option>
+              <option value="50">50 Hz</option>
+            </select>
+          </div>
+          <button class="btn btn-primary mt-2" onclick="saveGlobalSettings()">💾 Save Global Config</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>System</h2>
+      </div>
+      <div class="card-body">
+        <div class="btn-group">
+          <button class="btn btn-danger" onclick="resetConfig()">⚠️ Reset All Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ HISTORY TAB ═══════════ -->
+  <div class="tab-content" id="tab-history">
+    <div class="card">
+      <div class="card-header">
+        <h2>Historical Data</h2>
+        <div class="btn-group">
+          <button class="btn btn-sm" onclick="loadHistory()">🔄 Refresh</button>
+          <button class="btn btn-sm" onclick="exportData()">📥 Export CSV</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-row mb-2">
+          <div class="form-group">
+            <label>Channel Filter</label>
+            <select class="form-control" id="histChannel">
+              <option value="">All Channels</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Time Range</label>
+            <select class="form-control" id="histRange">
+              <option value="3600000">Last Hour</option>
+              <option value="86400000" selected>Last 24 Hours</option>
+              <option value="604800000">Last 7 Days</option>
+              <option value="2592000000">Last 30 Days</option>
+              <option value="">All Time</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Limit</label>
+            <input type="number" class="form-control" id="histLimit" value="500" min="10" max="10000">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadHistory()" style="width:100%">Search</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Chart</h2>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="historyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Data Table</h2>
+      </div>
+      <div class="card-body" style="padding:0; overflow-x: auto;">
+        <table class="config-table" id="historyTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Channel</th>
+              <th>Type</th>
+              <th>Temperature</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">Click Search to load data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CHANNEL CONFIG MODAL ═══════════ -->
+  <div class="modal-overlay" id="channelModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Configure Channel</h3>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modalChannel">
+        <div class="form-group">
+          <label>Sensor Type</label>
+          <select class="form-control" id="modalSensorType" onchange="onSensorTypeChange()">
+            <option value="0">Unassigned</option>
+            <optgroup label="Thermocouples">
+              <option value="1">Type J</option>
+              <option value="2">Type K</option>
+              <option value="3">Type E</option>
+              <option value="4">Type N</option>
+              <option value="5">Type R</option>
+              <option value="6">Type S</option>
+              <option value="8">Type T</option>
+              <option value="7">Type B</option>
+              <option value="9">Custom Thermocouple</option>
+            </optgroup>
+            <optgroup label="RTDs">
+              <option value="10">RTD PT-10</option>
+              <option value="11">RTD PT-50</option>
+              <option value="12">RTD PT-100</option>
+              <option value="13">RTD PT-200</option>
+              <option value="14">RTD PT-500</option>
+              <option value="15">RTD PT-1000</option>
+              <option value="16">RTD Custom</option>
+            </optgroup>
+            <optgroup label="Thermistors">
+              <option value="17">Thermistor 44004/44033</option>
+              <option value="18">Thermistor 44005/44030</option>
+              <option value="19">Thermistor 44007/44034</option>
+              <option value="20">Thermistor 44006/44031</option>
+              <option value="21">Thermistor 44008/44032</option>
+              <option value="22">Thermistor Custom</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="28">Diode</option>
+              <option value="29">Sense Resistor</option>
+              <option value="30">Direct ADC</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Thermocouple options -->
+        <div id="tcOptions" style="display:none;">
+          <div class="form-group">
+            <label>Cold Junction Channel (0 = none)</label>
+            <select class="form-control" id="modalCjChannel">
+              <option value="0">None</option>
+            </select>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="modalTcSingleEnded" checked>
+            <label for="modalTcSingleEnded">Single-Ended</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="modalOcCheck">
+            <label for="modalOcCheck">Open-Circuit Check</label>
+          </div>
+          <div class="form-group">
+            <label>OC Detection Current</label>
+            <select class="form-control" id="modalOcCurrent">
+              <option value="0">10 µA / External</option>
+              <option value="1">100 µA</option>
+              <option value="2">500 µA</option>
+              <option value="3">1000 µA</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Diode options -->
+        <div id="diodeOptions" style="display:none;">
+          <div class="form-check">
+            <input type="checkbox" id="modalDiodeSE" checked>
+            <label for="modalDiodeSE">Single-Ended</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="modalDiode3Read" checked>
+            <label for="modalDiode3Read">3-Reading Mode</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="modalDiodeAvg" checked>
+            <label for="modalDiodeAvg">Averaging</label>
+          </div>
+          <div class="form-group">
+            <label>Excitation Current</label>
+            <select class="form-control" id="modalDiodeCurrent">
+              <option value="0">10 µA</option>
+              <option value="1">20 µA</option>
+              <option value="2">40 µA</option>
+              <option value="3">80 µA</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ideality Factor (hex, e.g., 0x00101042 = ~1.04)</label>
+            <input type="text" class="form-control" id="modalIdealityFactor" value="0x00101042">
+          </div>
+        </div>
+
+        <!-- RTD options -->
+        <div id="rtdOptions" style="display:none;">
+          <div class="form-group">
+            <label>Sense Resistor Channel</label>
+            <select class="form-control" id="modalRsenseChannel">
+              <option value="0">None</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Number of Wires</label>
+            <select class="form-control" id="modalNumWires">
+              <option value="0">4-Wire</option>
+              <option value="2" selected>2-Wire</option>
+              <option value="3">3-Wire</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Excitation Mode</label>
+            <select class="form-control" id="modalRtdExcMode">
+              <option value="0">No Rotation/Sharing</option>
+              <option value="1">Sharing</option>
+              <option value="2">Rotation</option>
+              <option value="3">Sharing + Rotation</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Excitation Current</label>
+            <input type="number" class="form-control" id="modalRtdExcCurrent" value="5" min="0" max="15">
+          </div>
+          <div class="form-group">
+            <label>Curve Type</label>
+            <select class="form-control" id="modalRtdCurve">
+              <option value="0">European</option>
+              <option value="1">American</option>
+              <option value="2">Japanese</option>
+              <option value="3">ITS-90</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Thermistor options -->
+        <div id="thermistorOptions" style="display:none;">
+          <div class="form-group">
+            <label>Sense Resistor Channel</label>
+            <select class="form-control" id="modalThermRsense">
+              <option value="0">None</option>
+            </select>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="modalThermSE" checked>
+            <label for="modalThermSE">Single-Ended</label>
+          </div>
+          <div class="form-group">
+            <label>Excitation Mode</label>
+            <select class="form-control" id="modalThermExcMode">
+              <option value="0">No Rotation/Sharing</option>
+              <option value="1">Sharing</option>
+              <option value="2">Rotation</option>
+              <option value="3">Sharing + Rotation</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Excitation Current</label>
+            <input type="number" class="form-control" id="modalThermExcCurrent" value="0" min="0" max="15">
+          </div>
+        </div>
+
+        <!-- Sense Resistor options -->
+        <div id="senseResOptions" style="display:none;">
+          <div class="form-group">
+            <label>Resistance Value (Ω)</label>
+            <input type="number" class="form-control" id="modalResistance" value="10000" step="1">
+          </div>
+        </div>
+
+        <!-- Direct ADC options -->
+        <div id="adcOptions" style="display:none;">
+          <div class="form-check">
+            <input type="checkbox" id="modalAdcSE" checked>
+            <label for="modalAdcSE">Single-Ended</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="removeChannel()">Remove</button>
+        <button class="btn btn-primary" onclick="saveChannel()">💾 Save Channel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Global State
+    // ═══════════════════════════════════════════════════════════════════════════
+    let socket;
+    let appConfig = {};
+    let deviceStatus = {};
+    let sensorTypeNames = {};
+    let liveChart = null;
+    let historyChart = null;
+    const MAX_CHART_POINTS = 100;
+    const chartData = {};  // channel -> array of {x, y}
+
+    // Color palette for channels
+    const COLORS = [
+      '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
+      '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#6366f1',
+      '#84cc16', '#e11d48', '#0ea5e9', '#a855f7', '#10b981',
+      '#f43f5e', '#7c3aed', '#eab308', '#64748b', '#d946ef',
+    ];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Initialize
+    // ═══════════════════════════════════════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', () => {
+      initSocket();
+      initTabs();
+      initLiveChart();
+      loadSensorTypes();
+      refreshDbStats();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Socket.IO
+    // ═══════════════════════════════════════════════════════════════════════════
+    function initSocket() {
+      socket = io();
+
+      socket.on('connect', () => {
+        addLog('Connected to server', 'success');
+      });
+
+      socket.on('disconnect', () => {
+        updateStatus('disconnected');
+        addLog('Disconnected from server', 'error');
+      });
+
+      socket.on('deviceStatus', (status) => {
+        deviceStatus = status;
+        updateStatus(status.initialized ? (status.simulate ? 'simulated' : 'connected') : 'error');
+        updateDashboard();
+        updateChannelTable();
+      });
+
+      socket.on('config', (cfg) => {
+        appConfig = cfg;
+        applyConfigToUI();
+      });
+
+      socket.on('readings', (data) => {
+        processReadings(data);
+      });
+
+      socket.on('singleReading', (reading) => {
+        processReadings({ timestamp: reading.timestamp, readings: { [reading.channel]: reading } });
+      });
+
+      socket.on('loggingStatus', (status) => {
+        updateLoggingUI(status);
+      });
+
+      socket.on('historicalReadings', (readings) => {
+        loadHistoricalReadingsIntoChart(readings);
+      });
+
+      socket.on('error', (err) => {
+        addLog(`Error: ${err.message}`, 'error');
+        showToast(err.message, 'error');
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Tab Navigation
+    // ═══════════════════════════════════════════════════════════════════════════
+    function initTabs() {
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
+          if (tab.dataset.tab === 'history') loadHistory();
+          if (tab.dataset.tab === 'logging') refreshDbStats();
+        });
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Status
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateStatus(state) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = 'status-dot';
+
+      switch (state) {
+        case 'connected':
+          dot.classList.add('active');
+          text.textContent = 'Hardware Connected';
+          break;
+        case 'simulated':
+          dot.classList.add('simulated');
+          text.textContent = 'Simulation Mode';
+          break;
+        case 'disconnected':
+          text.textContent = 'Disconnected';
+          break;
+        case 'error':
+          dot.classList.add('error');
+          text.textContent = 'Not Initialized';
+          break;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Dashboard
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateDashboard() {
+      const container = document.getElementById('tempCardsContainer');
+      const configs = deviceStatus.channelConfigs || {};
+      const readings = deviceStatus.lastReadings || {};
+
+      const configuredChannels = Object.keys(configs).filter(ch => configs[ch].sensorType > 0);
+
+      if (configuredChannels.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📡</div><p>No channels configured. Go to Channel Config to set up sensors.</p></div>';
+        return;
+      }
+
+      container.innerHTML = configuredChannels.map(ch => {
+        const r = readings[ch];
+        const cfg = configs[ch];
+        const typeName = cfg?.sensorTypeName || sensorTypeNames[cfg?.sensorType] || 'Unknown';
+
+        let tempDisplay = '--';
+        let cardClass = 'temp-card';
+        let errorText = '';
+        let timeText = '';
+
+        if (r) {
+          if (r.valid) {
+            tempDisplay = r.temperature.toFixed(2);
+            cardClass += ' has-reading';
+          } else {
+            tempDisplay = '⚠️';
+            cardClass += ' error';
+            errorText = (r.errors || []).join(', ');
+          }
+          timeText = new Date(r.timestamp).toLocaleTimeString();
+        }
+
+        return `
+          <div class="${cardClass}">
+            <div class="channel-num">Channel ${ch}</div>
+            <div class="sensor-type">${typeName}</div>
+            <div class="temperature">${tempDisplay}<span class="unit">${r?.unit || '°C'}</span></div>
+            ${errorText ? `<div class="error-text">${errorText}</div>` : ''}
+            ${timeText ? `<div class="timestamp">${timeText}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function processReadings(data) {
+      const { timestamp, readings } = data;
+      deviceStatus.lastReadings = { ...deviceStatus.lastReadings, ...readings };
+      updateDashboard();
+
+      // Update chart
+      for (const [ch, r] of Object.entries(readings)) {
+        if (r.valid && r.temperature != null) {
+          if (!chartData[ch]) chartData[ch] = [];
+          chartData[ch].push({ x: new Date(timestamp), y: r.temperature });
+          if (chartData[ch].length > MAX_CHART_POINTS) {
+            chartData[ch].shift();
+          }
+        }
+      }
+      updateLiveChart();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Live Chart
+    // ═══════════════════════════════════════════════════════════════════════════
+    function initLiveChart() {
+      const ctx = document.getElementById('liveChart').getContext('2d');
+      liveChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          scales: {
+            x: {
+              type: 'time' in Chart.defaults.scales ? 'time' : 'linear',
+              display: true,
+              ticks: { color: '#64748b', maxTicksLimit: 10 },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+            },
+            y: {
+              display: true,
+              title: { display: true, text: 'Temperature', color: '#94a3b8' },
+              ticks: { color: '#64748b' },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+            },
+          },
+          plugins: {
+            legend: { labels: { color: '#94a3b8' } },
+          },
+        },
+      });
+    }
+
+    function updateLiveChart() {
+      if (!liveChart) return;
+
+      const datasets = Object.entries(chartData).map(([ch, points]) => ({
+        label: `CH ${ch}`,
+        data: points.map(p => ({ x: p.x.getTime(), y: p.y })),
+        borderColor: COLORS[(parseInt(ch) - 1) % COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+      }));
+
+      liveChart.data.datasets = datasets;
+      liveChart.update('none');
+    }
+
+    function clearChart() {
+      for (const key of Object.keys(chartData)) {
+        delete chartData[key];
+      }
+      updateLiveChart();
+    }
+
+    /**
+     * Load historical readings from the SQLite database into the live chart.
+     * Called on initial socket connection so that previously collected data
+     * (even across power outages) is immediately visible.
+     */
+    function loadHistoricalReadingsIntoChart(readings) {
+      if (!readings || readings.length === 0) return;
+
+      // Group by channel and populate chartData
+      for (const r of readings) {
+        const ch = String(r.channel);
+        if (r.temperature == null) continue;
+
+        if (!chartData[ch]) chartData[ch] = [];
+        chartData[ch].push({ x: new Date(r.timestamp), y: r.temperature });
+      }
+
+      // Trim each channel to MAX_CHART_POINTS
+      for (const ch of Object.keys(chartData)) {
+        if (chartData[ch].length > MAX_CHART_POINTS) {
+          chartData[ch] = chartData[ch].slice(-MAX_CHART_POINTS);
+        }
+      }
+
+      updateLiveChart();
+
+      // Also update the dashboard cards with the latest readings from DB
+      // so there's something to show even before any new live conversions
+      const latestByChannel = {};
+      for (const r of readings) {
+        const ch = r.channel;
+        if (!latestByChannel[ch] || r.timestamp > latestByChannel[ch].timestamp) {
+          latestByChannel[ch] = {
+            channel: ch,
+            sensorType: r.sensor_type,
+            sensorTypeName: r.sensor_type_name,
+            temperature: r.temperature,
+            valid: !!r.valid,
+            errors: r.errors ? JSON.parse(r.errors) : [],
+            unit: r.unit || '°C',
+            timestamp: r.timestamp,
+          };
+        }
+      }
+
+      // Merge into deviceStatus.lastReadings (don't overwrite newer live data)
+      if (!deviceStatus.lastReadings) deviceStatus.lastReadings = {};
+      for (const [ch, reading] of Object.entries(latestByChannel)) {
+        if (!deviceStatus.lastReadings[ch]) {
+          deviceStatus.lastReadings[ch] = reading;
+        }
+      }
+      updateDashboard();
+
+      const count = readings.length;
+      const channels = [...new Set(readings.map(r => r.channel))].sort((a, b) => a - b);
+      addLog(`Loaded ${count} historical readings from database (channels: ${channels.join(', ')})`, 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Channel Configuration Table
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateChannelTable() {
+      const tbody = document.getElementById('channelTableBody');
+      const configs = deviceStatus.channelConfigs || {};
+      const ccMap = deviceStatus.ccMap || [];
+      const readings = deviceStatus.lastReadings || {};
+
+      let rows = '';
+      for (let ch = 1; ch <= 20; ch++) {
+        const cfg = configs[ch];
+        const inMap = ccMap.includes(ch);
+        const r = readings[ch];
+        const sensorType = cfg?.sensorType ?? 0;
+        const typeName = sensorTypeNames[sensorType] || (sensorType === 0 ? 'Unassigned' : `Type ${sensorType}`);
+
+        let details = '';
+        if (cfg) {
+          if (sensorType >= 1 && sensorType <= 9) {
+            details = `CJ: CH${cfg.cjChannel || '-'}, ${cfg.singleEnded ? 'SE' : 'DIFF'}`;
+          } else if (sensorType === 28) {
+            details = `${cfg.singleEnded ? 'SE' : 'DIFF'}, ${cfg.threeReadings ? '3-read' : '2-read'}`;
+          } else if (sensorType >= 10 && sensorType <= 16) {
+            details = `Rsense: CH${cfg.rsenseChannel || '-'}, ${cfg.numWires ?? 2}-wire`;
+          } else if (sensorType === 29) {
+            details = `${cfg.resistanceValue || 10000} Ω`;
+          }
+        }
+
+        let readingStr = '-';
+        if (r) {
+          readingStr = r.valid ? `${r.temperature.toFixed(2)} ${r.unit}` : `<span class="text-danger">${(r.errors||[]).join(',')}</span>`;
+        }
+
+        const rowClass = sensorType === 0 ? 'style="opacity:0.4;"' : '';
+        rows += `
+          <tr ${rowClass}>
+            <td><strong>${ch}</strong></td>
+            <td>${typeName}</td>
+            <td style="font-size:0.75rem;">${details}</td>
+            <td>${inMap ? '<span class="text-success">✓</span>' : '<span class="text-muted">—</span>'}</td>
+            <td style="font-variant-numeric:tabular-nums;">${readingStr}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="openChannelModal(${ch})">Edit</button>
+            </td>
+          </tr>
+        `;
+      }
+      tbody.innerHTML = rows;
+
+      // Update CC map checkboxes
+      updateCCMapCheckboxes();
+    }
+
+    function updateCCMapCheckboxes() {
+      const container = document.getElementById('ccMapCheckboxes');
+      const configs = deviceStatus.channelConfigs || {};
+      const ccMap = deviceStatus.ccMap || [];
+
+      let html = '';
+      for (let ch = 1; ch <= 20; ch++) {
+        const cfg = configs[ch];
+        const sensorType = cfg?.sensorType ?? 0;
+        const isConfigured = sensorType > 0 && sensorType !== 29; // Don't include sense resistors
+        const checked = ccMap.includes(ch) ? 'checked' : '';
+        const disabled = !isConfigured ? 'disabled' : '';
+        const label = isConfigured
+          ? `CH ${ch} (${(sensorTypeNames[sensorType] || 'Unknown').split(' ').slice(0, 2).join(' ')})`
+          : `CH ${ch}`;
+
+        html += `
+          <div class="form-check">
+            <input type="checkbox" id="ccmap_${ch}" data-channel="${ch}" ${checked} ${disabled}>
+            <label for="ccmap_${ch}" style="${!isConfigured ? 'opacity:0.3' : ''}">${label}</label>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Channel Modal
+    // ═══════════════════════════════════════════════════════════════════════════
+    function openChannelModal(channel) {
+      document.getElementById('modalChannel').value = channel;
+      document.getElementById('modalTitle').textContent = `Configure Channel ${channel}`;
+
+      // Populate CJ channel dropdowns
+      populateChannelDropdowns();
+
+      // Load existing config if any
+      const cfg = (deviceStatus.channelConfigs || {})[channel];
+      if (cfg && cfg.sensorType > 0) {
+        document.getElementById('modalSensorType').value = cfg.sensorType;
+        onSensorTypeChange();
+        applyConfigToModal(cfg);
+      } else {
+        document.getElementById('modalSensorType').value = 0;
+        onSensorTypeChange();
+      }
+
+      document.getElementById('channelModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('channelModal').classList.remove('active');
+    }
+
+    function populateChannelDropdowns() {
+      const selectors = ['modalCjChannel', 'modalRsenseChannel', 'modalThermRsense'];
+      selectors.forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="0">None</option>';
+        for (let ch = 1; ch <= 20; ch++) {
+          sel.innerHTML += `<option value="${ch}">Channel ${ch}</option>`;
+        }
+      });
+    }
+
+    function onSensorTypeChange() {
+      const sensorType = parseInt(document.getElementById('modalSensorType').value);
+
+      // Hide all option panels
+      ['tcOptions', 'diodeOptions', 'rtdOptions', 'thermistorOptions', 'senseResOptions', 'adcOptions']
+        .forEach(id => document.getElementById(id).style.display = 'none');
+
+      // Show relevant panel
+      if (sensorType >= 1 && sensorType <= 9) {
+        document.getElementById('tcOptions').style.display = 'block';
+      } else if (sensorType === 28) {
+        document.getElementById('diodeOptions').style.display = 'block';
+      } else if (sensorType >= 10 && sensorType <= 16) {
+        document.getElementById('rtdOptions').style.display = 'block';
+      } else if (sensorType >= 17 && sensorType <= 22) {
+        document.getElementById('thermistorOptions').style.display = 'block';
+      } else if (sensorType === 29) {
+        document.getElementById('senseResOptions').style.display = 'block';
+      } else if (sensorType === 30) {
+        document.getElementById('adcOptions').style.display = 'block';
+      }
+    }
+
+    function applyConfigToModal(cfg) {
+      const st = cfg.sensorType;
+      if (st >= 1 && st <= 9) {
+        document.getElementById('modalCjChannel').value = cfg.cjChannel || 0;
+        document.getElementById('modalTcSingleEnded').checked = cfg.singleEnded !== false;
+        document.getElementById('modalOcCheck').checked = !!cfg.ocCheckEnabled;
+        document.getElementById('modalOcCurrent').value = cfg.ocCurrent || 0;
+      } else if (st === 28) {
+        document.getElementById('modalDiodeSE').checked = cfg.singleEnded !== false;
+        document.getElementById('modalDiode3Read').checked = cfg.threeReadings !== false;
+        document.getElementById('modalDiodeAvg').checked = cfg.averaging !== false;
+        document.getElementById('modalDiodeCurrent').value = cfg.excitationCurrent || 0;
+        document.getElementById('modalIdealityFactor').value = '0x' + (cfg.idealityFactor || 0x00101042).toString(16).padStart(8, '0');
+      } else if (st >= 10 && st <= 16) {
+        document.getElementById('modalRsenseChannel').value = cfg.rsenseChannel || 0;
+        document.getElementById('modalNumWires').value = cfg.numWires ?? 2;
+        document.getElementById('modalRtdExcMode').value = cfg.excitationMode || 0;
+        document.getElementById('modalRtdExcCurrent').value = cfg.excitationCurrent ?? 5;
+        document.getElementById('modalRtdCurve').value = cfg.curveType || 0;
+      } else if (st >= 17 && st <= 22) {
+        document.getElementById('modalThermRsense').value = cfg.rsenseChannel || 0;
+        document.getElementById('modalThermSE').checked = cfg.singleEnded !== false;
+        document.getElementById('modalThermExcMode').value = cfg.excitationMode || 0;
+        document.getElementById('modalThermExcCurrent').value = cfg.excitationCurrent || 0;
+      } else if (st === 29) {
+        document.getElementById('modalResistance').value = cfg.resistanceValue || 10000;
+      } else if (st === 30) {
+        document.getElementById('modalAdcSE').checked = cfg.singleEnded !== false;
+      }
+    }
+
+    async function saveChannel() {
+      const channel = parseInt(document.getElementById('modalChannel').value);
+      const sensorType = parseInt(document.getElementById('modalSensorType').value);
+
+      let config = { sensorType };
+
+      if (sensorType >= 1 && sensorType <= 9) {
+        config.cjChannel = parseInt(document.getElementById('modalCjChannel').value);
+        config.singleEnded = document.getElementById('modalTcSingleEnded').checked;
+        config.ocCheckEnabled = document.getElementById('modalOcCheck').checked;
+        config.ocCurrent = parseInt(document.getElementById('modalOcCurrent').value);
+      } else if (sensorType === 28) {
+        config.singleEnded = document.getElementById('modalDiodeSE').checked;
+        config.threeReadings = document.getElementById('modalDiode3Read').checked;
+        config.averaging = document.getElementById('modalDiodeAvg').checked;
+        config.excitationCurrent = parseInt(document.getElementById('modalDiodeCurrent').value);
+        config.idealityFactor = parseInt(document.getElementById('modalIdealityFactor').value);
+      } else if (sensorType >= 10 && sensorType <= 16) {
+        config.rsenseChannel = parseInt(document.getElementById('modalRsenseChannel').value);
+        config.numWires = parseInt(document.getElementById('modalNumWires').value);
+        config.excitationMode = parseInt(document.getElementById('modalRtdExcMode').value);
+        config.excitationCurrent = parseInt(document.getElementById('modalRtdExcCurrent').value);
+        config.curveType = parseInt(document.getElementById('modalRtdCurve').value);
+      } else if (sensorType >= 17 && sensorType <= 22) {
+        config.rsenseChannel = parseInt(document.getElementById('modalThermRsense').value);
+        config.singleEnded = document.getElementById('modalThermSE').checked;
+        config.excitationMode = parseInt(document.getElementById('modalThermExcMode').value);
+        config.excitationCurrent = parseInt(document.getElementById('modalThermExcCurrent').value);
+      } else if (sensorType === 29) {
+        config.resistanceValue = parseFloat(document.getElementById('modalResistance').value);
+      } else if (sensorType === 30) {
+        config.singleEnded = document.getElementById('modalAdcSE').checked;
+      }
+
+      try {
+        const resp = await fetch(`/api/channels/${channel}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        const result = await resp.json();
+        if (result.success) {
+          showToast(`Channel ${channel} configured`, 'success');
+          closeModal();
+          refreshStatus();
+        } else {
+          showToast(result.error || 'Failed to save', 'error');
+        }
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function removeChannel() {
+      const channel = parseInt(document.getElementById('modalChannel').value);
+      if (!confirm(`Remove configuration for Channel ${channel}?`)) return;
+
+      try {
+        await fetch(`/api/channels/${channel}`, { method: 'DELETE' });
+        showToast(`Channel ${channel} removed`, 'success');
+        closeModal();
+        refreshStatus();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function saveConversionMap() {
+      const channels = [];
+      document.querySelectorAll('#ccMapCheckboxes input[type="checkbox"]:checked').forEach(cb => {
+        channels.push(parseInt(cb.dataset.channel));
+      });
+
+      try {
+        const resp = await fetch('/api/conversion-map', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channels }),
+        });
+        const result = await resp.json();
+        if (result.success) {
+          showToast(`Conversion map updated: [${result.conversionMap.join(', ')}]`, 'success');
+          refreshStatus();
+        }
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function applyAllChannels() {
+      try {
+        await fetch('/api/device/init', { method: 'POST' });
+        showToast('Device re-initialized with current config', 'success');
+        refreshStatus();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Conversions
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function requestConversion() {
+      const btn = document.getElementById('btnConvert');
+      btn.disabled = true;
+      btn.textContent = '⏳ Converting...';
+
+      try {
+        const resp = await fetch('/api/convert', { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) {
+          showToast(data.error, 'error');
+        }
+      } catch (err) {
+        showToast(`Conversion error: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⚡ Convert Now';
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Logging
+    // ═══════════════════════════════════════════════════════════════════════════
+    function toggleLogging() {
+      if (deviceStatus.loggingActive) {
+        fetch('/api/logging/stop', { method: 'POST' });
+      } else {
+        fetch('/api/logging/start', { method: 'POST' });
+      }
+    }
+
+    function updateLoggingUI(status) {
+      deviceStatus.loggingActive = status.active;
+      const badge = document.getElementById('loggingBadge');
+      const btn1 = document.getElementById('btnToggleLog');
+      const btn2 = document.getElementById('btnToggleLog2');
+
+      if (status.active) {
+        badge.style.display = 'flex';
+        btn1.textContent = '⏹ Stop Logging';
+        btn1.className = 'btn btn-danger btn-sm';
+        btn2.textContent = '⏹ Stop Logging';
+        btn2.className = 'btn btn-danger';
+      } else {
+        badge.style.display = 'none';
+        btn1.textContent = '▶ Start Logging';
+        btn1.className = 'btn btn-success btn-sm';
+        btn2.textContent = '▶ Start Logging';
+        btn2.className = 'btn btn-success';
+      }
+    }
+
+    async function saveLoggingSettings() {
+      const settings = {
+        intervalMs: parseInt(document.getElementById('logInterval').value),
+        retentionDays: parseInt(document.getElementById('logRetention').value),
+        enabled: document.getElementById('logAutoStart').checked,
+      };
+
+      try {
+        await fetch('/api/config/logging', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        });
+        showToast('Logging settings saved', 'success');
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function refreshDbStats() {
+      try {
+        const resp = await fetch('/api/logging/status');
+        const stats = await resp.json();
+        document.getElementById('statReadings').textContent = stats.dbReadingCount.toLocaleString();
+        const sizeKB = (stats.dbSize / 1024).toFixed(1);
+        const sizeMB = (stats.dbSize / (1024 * 1024)).toFixed(2);
+        document.getElementById('statDbSize').textContent = stats.dbSize > 1048576 ? `${sizeMB} MB` : `${sizeKB} KB`;
+      } catch (err) {
+        console.error('Failed to fetch DB stats', err);
+      }
+    }
+
+    function exportData() {
+      window.open('/api/readings/export', '_blank');
+    }
+
+    async function purgeData() {
+      const days = prompt('Purge readings older than how many days?', '30');
+      if (!days) return;
+
+      const cutoff = Date.now() - (parseInt(days) * 24 * 60 * 60 * 1000);
+      try {
+        const resp = await fetch('/api/readings/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ olderThanMs: cutoff }),
+        });
+        const result = await resp.json();
+        showToast(`Purged ${result.deleted} readings`, 'success');
+        refreshDbStats();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Settings
+    // ═══════════════════════════════════════════════════════════════════════════
+    function applyConfigToUI() {
+      if (!appConfig) return;
+
+      // Device settings
+      if (appConfig.device) {
+        document.getElementById('cfgSpiBus').value = appConfig.device.spiBus ?? 0;
+        document.getElementById('cfgSpiDevice').value = appConfig.device.spiDevice ?? 1;
+        document.getElementById('cfgSpiSpeed').value = appConfig.device.spiSpeed ?? 1000000;
+        document.getElementById('cfgIntPin').value = appConfig.device.intPin ?? 35;
+        document.getElementById('cfgRstPin').value = appConfig.device.rstPin ?? 37;
+        document.getElementById('cfgSimulate').checked = appConfig.device.simulate;
+      }
+
+      // Global config
+      if (appConfig.global) {
+        document.getElementById('cfgUnit').value = String(appConfig.global.fahrenheit);
+        document.getElementById('cfgRejection').value = appConfig.global.rejection || '50/60';
+      }
+
+      // Logging
+      if (appConfig.logging) {
+        document.getElementById('logInterval').value = appConfig.logging.intervalMs || 1000;
+        document.getElementById('logRetention').value = appConfig.logging.retentionDays ?? 30;
+        document.getElementById('logAutoStart').checked = appConfig.logging.enabled;
+      }
+
+      // History channel dropdown
+      const histSelect = document.getElementById('histChannel');
+      histSelect.innerHTML = '<option value="">All Channels</option>';
+      const configs = deviceStatus.channelConfigs || appConfig.channels || {};
+      for (const ch of Object.keys(configs)) {
+        if (configs[ch].sensorType > 0) {
+          histSelect.innerHTML += `<option value="${ch}">Channel ${ch}</option>`;
+        }
+      }
+    }
+
+    async function saveDeviceSettings() {
+      const settings = {
+        spiBus: parseInt(document.getElementById('cfgSpiBus').value),
+        spiDevice: parseInt(document.getElementById('cfgSpiDevice').value),
+        spiSpeed: parseInt(document.getElementById('cfgSpiSpeed').value),
+        intPin: parseInt(document.getElementById('cfgIntPin').value),
+        rstPin: parseInt(document.getElementById('cfgRstPin').value),
+        simulate: document.getElementById('cfgSimulate').checked,
+      };
+
+      try {
+        await fetch('/api/config/device', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        });
+        showToast('Device settings saved. Re-initialize to apply.', 'success');
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function saveGlobalSettings() {
+      const settings = {
+        fahrenheit: document.getElementById('cfgUnit').value === 'true',
+        rejection: document.getElementById('cfgRejection').value,
+      };
+
+      try {
+        await fetch('/api/config/global', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        });
+        showToast('Global config saved', 'success');
+        refreshStatus();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function reinitDevice() {
+      try {
+        const resp = await fetch('/api/device/init', { method: 'POST' });
+        const result = await resp.json();
+        showToast(result.success ? 'Device re-initialized' : 'Device init failed', result.success ? 'success' : 'error');
+        refreshStatus();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function resetConfig() {
+      if (!confirm('⚠️ This will reset ALL configuration to defaults. Are you sure?')) return;
+
+      try {
+        await fetch('/api/config/reset', { method: 'POST' });
+        showToast('Configuration reset to defaults', 'success');
+        location.reload();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // History
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function loadHistory() {
+      const channel = document.getElementById('histChannel').value;
+      const range = document.getElementById('histRange').value;
+      const limit = document.getElementById('histLimit').value;
+
+      let url = `/api/readings?limit=${limit}`;
+      if (channel) url += `&channels=${channel}`;
+      if (range) url += `&start=${Date.now() - parseInt(range)}`;
+
+      try {
+        const resp = await fetch(url);
+        const readings = await resp.json();
+
+        // Update table
+        const tbody = document.getElementById('historyTableBody');
+        if (readings.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">No data found</td></tr>';
+        } else {
+          tbody.innerHTML = readings.map(r => `
+            <tr>
+              <td>${new Date(r.timestamp).toLocaleString()}</td>
+              <td>CH ${r.channel}</td>
+              <td>${r.sensor_type_name || 'N/A'}</td>
+              <td style="font-variant-numeric:tabular-nums;">${r.temperature != null ? r.temperature.toFixed(3) : '-'} ${r.unit || ''}</td>
+              <td>${r.valid ? '<span class="text-success">✓</span>' : '<span class="text-danger">✗</span>'}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Update history chart
+        updateHistoryChart(readings);
+      } catch (err) {
+        showToast(`Error loading history: ${err.message}`, 'error');
+      }
+    }
+
+    function updateHistoryChart(readings) {
+      const ctx = document.getElementById('historyChart').getContext('2d');
+
+      if (historyChart) historyChart.destroy();
+
+      // Group by channel
+      const byChannel = {};
+      for (const r of readings) {
+        if (r.valid && r.temperature != null) {
+          if (!byChannel[r.channel]) byChannel[r.channel] = [];
+          byChannel[r.channel].push({ x: r.timestamp, y: r.temperature });
+        }
+      }
+
+      // Sort each channel's data by time
+      for (const ch of Object.keys(byChannel)) {
+        byChannel[ch].sort((a, b) => a.x - b.x);
+      }
+
+      const datasets = Object.entries(byChannel).map(([ch, points]) => ({
+        label: `CH ${ch}`,
+        data: points,
+        borderColor: COLORS[(parseInt(ch) - 1) % COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: points.length < 50 ? 3 : 0,
+        tension: 0.3,
+      }));
+
+      historyChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'linear',
+              display: true,
+              ticks: {
+                color: '#64748b',
+                maxTicksLimit: 10,
+                callback: (v) => new Date(v).toLocaleTimeString(),
+              },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+            },
+            y: {
+              display: true,
+              title: { display: true, text: 'Temperature', color: '#94a3b8' },
+              ticks: { color: '#64748b' },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+            },
+          },
+          plugins: {
+            legend: { labels: { color: '#94a3b8' } },
+          },
+        },
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Utility
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function loadSensorTypes() {
+      try {
+        const resp = await fetch('/api/sensor-types');
+        const data = await resp.json();
+        sensorTypeNames = data.sensorTypeNames || {};
+      } catch (err) {
+        console.error('Failed to load sensor types', err);
+      }
+    }
+
+    function refreshStatus() {
+      socket.emit('getStatus');
+    }
+
+    function addLog(message, type = '') {
+      const panel = document.getElementById('logPanel');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <span class="log-time">${new Date().toLocaleTimeString()}</span>
+        <span class="log-msg">${message}</span>
+      `;
+      panel.prepend(entry);
+
+      // Keep only last 100 entries
+      while (panel.children.length > 100) {
+        panel.removeChild(panel.lastChild);
+      }
+    }
+
+    function clearLog() {
+      document.getElementById('logPanel').innerHTML = '';
+    }
+
+    function showToast(message, type = '') {
+      const existing = document.querySelectorAll('.toast');
+      existing.forEach(t => t.remove());
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => toast.remove(), 4000);
+    }
+  </script>
+</body>
+</html>

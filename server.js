@@ -30,6 +30,8 @@ if (SIMULATE) {
 const db = new TemperatureDB();
 db.init();
 
+const MAX_CHART_POINTS = 100;  // Max data points per channel to send on initial load
+
 let device = null;
 let loggingInterval = null;
 let loggingActive = false;
@@ -447,6 +449,18 @@ io.on('connection', (socket) => {
   socket.emit('deviceStatus', getDeviceStatus());
   socket.emit('loggingStatus', { active: loggingActive, intervalMs: config.logging.intervalMs });
   socket.emit('config', configManager.getAll());
+
+  // Send recent historical readings so the client can pre-populate the chart
+  // This ensures data survives power outages — it's loaded from SQLite on disk
+  try {
+    const recentReadings = db.getRecentReadings(MAX_CHART_POINTS);
+    if (recentReadings.length > 0) {
+      socket.emit('historicalReadings', recentReadings);
+      console.log(`[Socket] Sent ${recentReadings.length} historical readings to ${socket.id}`);
+    }
+  } catch (err) {
+    console.error(`[Socket] Error loading historical readings: ${err.message}`);
+  }
 
   // Handle requests from client
   socket.on('requestConversion', async () => {

@@ -191,6 +191,21 @@ class TemperatureDB {
     return this.db.prepare(sql).get(...params);
   }
 
+  /** Get recent readings for chart pre-population (returns data sorted oldest→newest) */
+  getRecentReadings(maxPoints = 100) {
+    // Get the most recent readings, limited to maxPoints per channel
+    // This is used to pre-populate the live chart on page load
+    const rows = this.db.prepare(`
+      SELECT * FROM (
+        SELECT * FROM readings
+        WHERE valid = 1 AND temperature IS NOT NULL
+        ORDER BY timestamp DESC
+        LIMIT ?
+      ) sub ORDER BY timestamp ASC
+    `).all(maxPoints * 20);  // 20 channels max, fetch enough to cover all
+    return rows;
+  }
+
   /** Get total reading count */
   getReadingCount() {
     return this.db.prepare('SELECT COUNT(*) as count FROM readings').get().count;
