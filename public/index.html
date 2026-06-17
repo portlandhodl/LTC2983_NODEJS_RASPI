@@ -768,17 +768,29 @@
           </div>
           <div class="form-group">
             <label>Time Range</label>
-            <select class="form-control" id="histRange">
+            <select class="form-control" id="histRange" onchange="onHistRangeChange()">
               <option value="3600000">Last Hour</option>
               <option value="86400000" selected>Last 24 Hours</option>
               <option value="604800000">Last 7 Days</option>
               <option value="2592000000">Last 30 Days</option>
               <option value="">All Time</option>
+              <option value="custom">Custom (seconds)</option>
             </select>
+          </div>
+          <div class="form-group" id="customSecondsGroup" style="display:none;">
+            <label>Seconds</label>
+            <input type="number" class="form-control" id="histCustomSeconds" value="3600" min="1" placeholder="e.g. 3600">
           </div>
           <div class="form-group">
             <label>Limit</label>
-            <input type="number" class="form-control" id="histLimit" value="500" min="10" max="10000">
+            <input type="number" class="form-control" id="histLimit" value="500" min="1" max="100000">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <div class="form-check" style="margin-top: 0.25rem;">
+              <input type="checkbox" id="histUnlimited">
+              <label for="histUnlimited">Unlimited samples</label>
+            </div>
           </div>
           <div class="form-group">
             <label>&nbsp;</label>
@@ -842,8 +854,8 @@
               <option value="4">Type N</option>
               <option value="5">Type R</option>
               <option value="6">Type S</option>
-              <option value="8">Type T</option>
-              <option value="7">Type B</option>
+              <option value="7">Type T</option>
+              <option value="8">Type B</option>
               <option value="9">Custom Thermocouple</option>
             </optgroup>
             <optgroup label="RTDs">
@@ -853,15 +865,20 @@
               <option value="13">RTD PT-200</option>
               <option value="14">RTD PT-500</option>
               <option value="15">RTD PT-1000</option>
-              <option value="16">RTD Custom</option>
+              <option value="16">RTD 1000 (α=0.00375)</option>
+              <option value="17">RTD NI-120</option>
+              <option value="18">RTD Custom</option>
             </optgroup>
             <optgroup label="Thermistors">
-              <option value="17">Thermistor 44004/44033</option>
-              <option value="18">Thermistor 44005/44030</option>
-              <option value="19">Thermistor 44007/44034</option>
-              <option value="20">Thermistor 44006/44031</option>
-              <option value="21">Thermistor 44008/44032</option>
-              <option value="22">Thermistor Custom</option>
+              <option value="19">Thermistor 44004/44033 2.252kΩ</option>
+              <option value="20">Thermistor 44005/44030 3kΩ</option>
+              <option value="21">Thermistor 44007/44034 5kΩ</option>
+              <option value="22">Thermistor 44006/44031 10kΩ</option>
+              <option value="23">Thermistor 44008/44032 30kΩ</option>
+              <option value="24">Thermistor YSI-400 2.252kΩ</option>
+              <option value="25">Thermistor Spectrum 1003k 1kΩ</option>
+              <option value="26">Thermistor Custom Steinhart-Hart</option>
+              <option value="27">Thermistor Custom Table</option>
             </optgroup>
             <optgroup label="Other">
               <option value="28">Diode</option>
@@ -1020,6 +1037,7 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1227,10 +1245,17 @@
           animation: { duration: 300 },
           scales: {
             x: {
-              type: 'time' in Chart.defaults.scales ? 'time' : 'linear',
+              type: 'time',
               display: true,
               ticks: { color: '#64748b', maxTicksLimit: 10 },
               grid: { color: 'rgba(255,255,255,0.05)' },
+              time: {
+                displayFormats: {
+                  second: 'HH:mm:ss',
+                  minute: 'HH:mm',
+                  hour: 'HH:mm',
+                },
+              },
             },
             y: {
               display: true,
@@ -1461,9 +1486,9 @@
         document.getElementById('tcOptions').style.display = 'block';
       } else if (sensorType === 28) {
         document.getElementById('diodeOptions').style.display = 'block';
-      } else if (sensorType >= 10 && sensorType <= 16) {
+      } else if (sensorType >= 10 && sensorType <= 18) {
         document.getElementById('rtdOptions').style.display = 'block';
-      } else if (sensorType >= 17 && sensorType <= 22) {
+      } else if (sensorType >= 19 && sensorType <= 27) {
         document.getElementById('thermistorOptions').style.display = 'block';
       } else if (sensorType === 29) {
         document.getElementById('senseResOptions').style.display = 'block';
@@ -1818,14 +1843,28 @@
     // ═══════════════════════════════════════════════════════════════════════════
     // History
     // ═══════════════════════════════════════════════════════════════════════════
+    function onHistRangeChange() {
+      const range = document.getElementById('histRange').value;
+      const customGroup = document.getElementById('customSecondsGroup');
+      customGroup.style.display = range === 'custom' ? 'block' : 'none';
+    }
+
     async function loadHistory() {
       const channel = document.getElementById('histChannel').value;
       const range = document.getElementById('histRange').value;
-      const limit = document.getElementById('histLimit').value;
+      const unlimited = document.getElementById('histUnlimited').checked;
+      const limit = unlimited ? 1000000 : document.getElementById('histLimit').value;
 
       let url = `/api/readings?limit=${limit}`;
       if (channel) url += `&channels=${channel}`;
-      if (range) url += `&start=${Date.now() - parseInt(range)}`;
+
+      // Handle time range
+      if (range === 'custom') {
+        const customSeconds = parseInt(document.getElementById('histCustomSeconds').value) || 3600;
+        url += `&start=${Date.now() - (customSeconds * 1000)}`;
+      } else if (range) {
+        url += `&start=${Date.now() - parseInt(range)}`;
+      }
 
       try {
         const resp = await fetch(url);
@@ -1962,6 +2001,7 @@
 
       setTimeout(() => toast.remove(), 4000);
     }
+
   </script>
 </body>
 </html>

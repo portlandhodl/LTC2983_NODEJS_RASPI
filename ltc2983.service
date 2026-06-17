@@ -1,0 +1,21 @@
+[Unit]
+Description=LTC2983 Temperature Monitoring System
+Documentation=https://github.com/portlandhodl/LTC2983_NODEJS_RASPI
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/qrsnap/git/LTC2983_NODEJS_RASPI
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ltc2983
+
+# Environment variables
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

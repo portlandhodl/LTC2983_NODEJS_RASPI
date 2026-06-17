@@ -10,7 +10,7 @@ const http = require('http');
 const { Server: SocketIO } = require('socket.io');
 const path = require('path');
 
-const { LTC2983, REG, SENSOR_TYPE_NAMES } = require('./src/ltc2983-driver');
+const { LTC2983, REG, SENSOR_TYPE_NAMES, FAULT_BITS } = require('./src/ltc2983-driver');
 const TemperatureDB = require('./src/database');
 const { ConfigManager } = require('./src/config-manager');
 
@@ -429,9 +429,15 @@ app.get('/api/sensor-types', (req, res) => {
   res.json({
     sensorTypes: REG.SENSOR_TYPES,
     sensorTypeNames: SENSOR_TYPE_NAMES,
+    faultBits: FAULT_BITS,
     rejectionModes: { '50/60': 'Both', '60': '60 Hz', '50': '50 Hz' },
     tcOcCurrents: REG.TC_OC_CURRENT,
     diodeCurrents: REG.DIODE_CURRENT,
+    rtdCurrents: REG.RTD_CURRENT,
+    rtdWires: REG.RTD_WIRES,
+    rtdCurves: REG.RTD_CURVE,
+    thermCurrents: REG.THERM_CURRENT,
+    thermConfigs: REG.THERM_CONFIG,
   });
 });
 
