@@ -1,6 +1,35 @@
+# ─── Dependencies ────────────────────────────────────────
 node_modules/
+
+# ─── Runtime Data ────────────────────────────────────────
 data/
 *.db
 *.db-wal
 *.db-shm
+
+# ─── Environment / Secrets ───────────────────────────────
 .env
+.env.*
+
+# ─── OS Generated Files ─────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── Editor / IDE ────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Logs ────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+
+# ─── Legacy vendored libraries (not used by current app) ─
+# These were committed from the old project and are not needed.
+# The current app uses CDN (Chart.js) and npm packages.
+d3/
+views/

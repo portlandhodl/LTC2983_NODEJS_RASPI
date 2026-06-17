@@ -436,7 +436,8 @@ app.get('/api/sensor-types', (req, res) => {
 });
 
 // --- Catch-all: serve index.html for SPA ---
-app.get('*', (req, res) => {
+// Express 5 requires named wildcard params instead of bare '*'
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

@@ -11,9 +11,9 @@
   "author": "Reese Russell",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.21.0",
-    "socket.io": "^4.7.5",
-    "better-sqlite3": "^11.3.0"
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "better-sqlite3": "^12.11.1"
   },
   "optionalDependencies": {
     "spi-device": "^3.1.2",
